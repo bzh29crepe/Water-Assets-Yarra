@@ -43,24 +43,73 @@ Results are surfaced in interactive **Streamlit dashboards** to support asset ri
 
 ---
 
-## Datasets
+## Datasets (synthetic)
+
+All data is **synthetic** and generated with `data/data_generation.py`.
+It simulates realistic water asset data by sampling from plausible distributions for:
+
+* Asset ages
+* Materials
+* Pipe diameters
+* Network pressures
+* Zones and locations
+
+Noise and heuristic relationships are injected to create realistic patterns for training and testing the models.
+
+---
 
 ### `data/yarra_assets.csv` (training)
 
-Asset records including:
+Synthetic dataset of **1,000 rows** used to **train both models**.
 
-* **Core descriptors:** `asset_id`, `asset_name`, `asset_type`, `material`, `diameter`, `installation_year`, `status`, `network_type`, `length`, `depth`, `zone`, `pressure_rating`, `location`, `geometry`.
+* **Core descriptors:**
+
+  * `asset_id`
+  * `asset_name`
+  * `asset_type`
+  * `material`
+  * `diameter`
+  * `installation_year`
+  * `status`
+  * `network_type`
+  * `length`
+  * `depth`
+  * `zone`
+  * `pressure_rating`
+  * `location`
+  * `geometry`
+
 * **Targets:**
 
-  * `Remaining_Years` (regression target for the RUL model).
-  * `Failure` (binary classification target for the Failure model).
+  * `Remaining_Years` → regression target for the **RUL model**.
+  * `Failure` → binary classification target for the **Failure model**.
+
+---
 
 ### `data/yarra_assets_unknown.csv` (inference)
 
-Same core descriptors as above **but without** `Remaining_Years` and `Failure`.
-Used by the app to generate predictions.
+Synthetic dataset of **1,000 rows** used for **prediction only**.
 
-> The synthetic generator (`data_generation.py`) samples plausible distributions (age, materials, pressure, diameter, zone) and injects noise and heuristic relationships so the models learn realistic signals.
+* Contains the **same core descriptors** as `yarra_assets.csv`.
+* **Excludes** the target columns (`Remaining_Years` and `Failure`).
+
+This dataset flows through the pipeline:
+
+```
+yarra_assets_unknown.csv
+      │
+      ├─ compute 'age' = current_year - installation_year
+      ▼
+RUL model → predict Remaining_Years
+      ▼
+append Remaining_Years
+      ▼
+Failure model → predict Failure_Prob
+      ▼
+Streamlit dashboards
+```
+
+This enables the dashboards to showcase **realistic end-to-end predictions** without exposing actual operational data.
 
 ---
 

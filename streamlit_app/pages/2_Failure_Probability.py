@@ -12,20 +12,22 @@ FAILURE_MODEL_ID = "1vCpGmY0y2cCsmSkr4ZJVHK196qqXKLwD"
 # ---- Helper function to download the model from Google Drive ----
 @st.cache_resource
 def load_model_from_gdrive(file_id, local_filename):
-    models_dir = Path("models")
-    models_dir.mkdir(exist_ok=True)
-    local_path = models_dir / local_filename
+    """Télécharge un modèle depuis Google Drive et le charge avec joblib."""
+    url = f"https://drive.google.com/uc?export=download&id={file_id}"
+    local_path = Path(local_filename)
 
+    # Télécharger le fichier seulement s'il n'existe pas déjà
     if not local_path.exists():
-        url = f"https://drive.google.com/uc?export=download&id={file_id}"
+        st.write("Téléchargement du modèle depuis Google Drive...")
         response = requests.get(url)
         if response.status_code == 200:
-            with open(local_path, "wb") as f:
-                f.write(response.content)
+            local_path.write_bytes(response.content)
+            st.write(f"Modèle téléchargé avec succès ({os.path.getsize(local_path)} octets)")
         else:
-            st.error(f"Error downloading model. Status code: {response.status_code}")
+            st.error(f"Erreur lors du téléchargement. Code HTTP: {response.status_code}")
             st.stop()
 
+    # Charger le modèle
     return joblib.load(local_path)
 
 # ---- Load Data and Model ----

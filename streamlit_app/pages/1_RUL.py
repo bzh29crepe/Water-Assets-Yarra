@@ -2,82 +2,41 @@ import streamlit as st
 import pandas as pd
 import joblib
 import plotly.express as px
-import os
 import requests
 from pathlib import Path
 
 # ---- Config ----
-RUL_MODEL_ID = "1mIdluWvhTLVx5PPY6H0PXx0NhTXYWFr_"
+HUGGINGFACE_MODEL_URL = "https://huggingface.co/louislb1302/failure_model.joblib/resolve/main/rul_model.joblib"
 
-import requests
-import joblib
-from pathlib import Path
-import os
-import streamlit as st
-
-import requests
-import joblib
-from pathlib import Path
-import os
-import streamlit as st
-
-def download_from_google_drive(file_id, destination):
-    """Télécharge un gros fichier Google Drive avec confirmation et par chunks."""
-    URL = "https://docs.google.com/uc?export=download"
-    session = requests.Session()
-
-    # Étape 1 : première requête
-    response = session.get(URL, params={'id': file_id}, stream=True)
-    token = None
-
-    # Cherche le token dans les cookies
-    for key, value in response.cookies.items():
-        if key.startswith('download_warning'):
-            token = value
-            break
-
-    # Étape 2 : si token trouvé, refaire la requête avec confirmation
-    if token:
-        params = {'id': file_id, 'confirm': token}
-        response = session.get(URL, params=params, stream=True)
-
-    # Étape 3 : téléchargement par chunks
-    CHUNK_SIZE = 32768
-    with open(destination, "wb") as f:
-        for chunk in response.iter_content(CHUNK_SIZE):
-            if chunk:
-                f.write(chunk)
-
-@st.cache_resource
-def load_model_from_gdrive(file_id, local_filename):
-    """Télécharge le modèle depuis Google Drive et le charge avec joblib."""
+# ---- Helper: Télécharger le modèle depuis Hugging Face ----
+def download_model_from_hf(url, local_filename):
+    """
+    Télécharge un modèle hébergé sur Hugging Face et le sauvegarde en local
+    """
     local_path = Path(local_filename)
-
     if not local_path.exists():
-        st.write(f"Téléchargement du modèle {local_filename} depuis Google Drive...")
-        download_from_google_drive(file_id, local_path)
-        size = os.path.getsize(local_path)
-        st.write(f"Modèle téléchargé avec succès ({size / (1024*1024):.2f} MB)")
+        st.write("Téléchargement du modèle RUL depuis Hugging Face...")
+        with requests.get(url, stream=True) as r:
+            r.raise_for_status()
+            with open(local_path, "wb") as f:
+                for chunk in r.iter_content(chunk_size=8192):
+                    if chunk:
+                        f.write(chunk)
+        size_mb = local_path.stat().st_size / (1024 * 1024)
+        st.write(f"Modèle téléchargé avec succès ({size_mb:.2f} MB)")
+    return local_path
 
-        # Vérifie que ce n'est pas du HTML
-        with open(local_path, "rb") as f:
-            head = f.read(200)
-        if head.startswith(b'<!DOCTYPE html>'):
-            st.error("Le fichier téléchargé est une page HTML, pas un modèle. Vérifie les droits ou le quota Google Drive.")
-            st.stop()
-
-    return joblib.load(local_path)
-
-# ---- Load Model and Data ----
+# ---- Load Data ----
 @st.cache_data
 def load_assets():
-    base_path = Path(__file__).resolve().parent.parent
-    csv_path = "data/yarra_assets.csv"
+    csv_path = Path("data/yarra_assets.csv")
     return pd.read_csv(csv_path)
 
+# ---- Load Model ----
 @st.cache_resource
 def load_model():
-    return load_model_from_gdrive(RUL_MODEL_ID, "rul_model.joblib")
+    model_path = download_model_from_hf(HUGGINGFACE_MODEL_URL, "rul_model.joblib")
+    return joblib.load(model_path)
 
 # ---- Streamlit Layout ----
 st.set_page_config(page_title="Remaining Useful Life Dashboard", layout="wide")
@@ -92,21 +51,19 @@ model = load_model()
 # ---- Sidebar filters ----
 st.sidebar.header("Filters")
 
-# Zone filter
 zones = st.sidebar.multiselect(
     "Zone",
     options=df["zone"].unique(),
     default=df["zone"].unique()
 )
 
-# Asset Type filter
 types = st.sidebar.multiselect(
     "Asset Type",
     options=df["asset_type"].unique(),
     default=df["asset_type"].unique()
 )
 
-# Remaining Life slider filter
+# Slider pour Remaining Life
 min_rul = float(df["Remaining_Years"].min())
 max_rul = float(df["Remaining_Years"].max())
 
@@ -118,7 +75,7 @@ rul_range = st.sidebar.slider(
     step=0.5
 )
 
-# Apply filters
+# ---- Filter the dataframe ----
 filtered_df = df[
     (df["zone"].isin(zones)) &
     (df["asset_type"].isin(types)) &
@@ -135,10 +92,9 @@ col1, col2 = st.columns(2)
 col1.metric("Total Assets", total_assets)
 col2.metric("Average Remaining Life (Years)", f"{avg_rul:.1f}")
 
-# ---- Top 5 Assets with Smallest Remaining Life ----
+# ---- Top 5 Assets ----
 st.subheader("Top 5 Assets with the Smallest Remaining Life")
 top_5 = filtered_df.sort_values(by="Remaining_Years", ascending=True).head(5)
-
 st.table(top_5[["asset_id", "asset_type", "material", "Remaining_Years", "zone", "status"]])
 
 st.markdown("""
@@ -148,6 +104,7 @@ These assets should be **prioritized for inspection or replacement** as they hav
 # ---- Map View ----
 st.subheader("Geospatial View of Assets")
 
+# Split geometry into lat/lon
 coords = filtered_df["geometry"].str.split(",", expand=True).astype(float)
 filtered_df["lat"] = coords[0]
 filtered_df["lon"] = coords[1]
@@ -166,7 +123,7 @@ map_fig = px.scatter_mapbox(
 map_fig.update_layout(mapbox_style="open-street-map")
 st.plotly_chart(map_fig, use_container_width=True)
 
-# ---- Table ----
+# ---- Full Table ----
 st.subheader("Full Asset Table")
 st.dataframe(filtered_df[[
     "asset_id", "asset_type", "material", "installation_year",

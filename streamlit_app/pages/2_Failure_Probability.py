@@ -7,39 +7,40 @@ import requests
 from pathlib import Path
 
 # ---- Config ----
-FAILURE_MODEL_ID = "1vCpGmY0y2cCsmSkr4ZJVHK196qqXKLwD"
+HUGGINGFACE_URL = "https://huggingface.co/louislb1302/failure_model.joblib/resolve/main/failure_model.joblib"
+LOCAL_MODEL_PATH = Path("failure_model.joblib")
 
-# ---- Helper function to download the model from Google Drive ----
+# ---- Téléchargement depuis Hugging Face ----
 @st.cache_resource
-def load_model_from_gdrive(file_id, local_filename):
-    """Télécharge un modèle depuis Google Drive et le charge avec joblib."""
-    url = f"https://drive.google.com/uc?export=download&id={file_id}"
-    local_path = Path(local_filename)
-
-    # Télécharger le fichier seulement s'il n'existe pas déjà
+def download_model_from_hf(url, local_path):
+    """Télécharge le modèle depuis Hugging Face s'il n'est pas déjà en local."""
     if not local_path.exists():
-        st.write("Téléchargement du modèle depuis Google Drive...")
-        response = requests.get(url)
+        st.write("Téléchargement du modèle depuis Hugging Face...")
+        response = requests.get(url, stream=True)
+
         if response.status_code == 200:
-            local_path.write_bytes(response.content)
-            st.write(f"Modèle téléchargé avec succès ({os.path.getsize(local_path)} octets)")
+            with open(local_path, "wb") as f:
+                for chunk in response.iter_content(chunk_size=8192):
+                    if chunk:
+                        f.write(chunk)
+            size_mb = os.path.getsize(local_path) / (1024 * 1024)
+            st.write(f"Modèle téléchargé avec succès ({size_mb:.2f} MB)")
         else:
-            st.error(f"Erreur lors du téléchargement. Code HTTP: {response.status_code}")
+            st.error(f"Erreur lors du téléchargement du modèle : HTTP {response.status_code}")
             st.stop()
 
-    # Charger le modèle
     return joblib.load(local_path)
 
-# ---- Load Data and Model ----
+# ---- Load Data ----
 @st.cache_data
 def load_assets():
-    base_path = Path(__file__).resolve().parent.parent
-    csv_path = "data/yarra_assets.csv"
+    csv_path = Path("data") / "yarra_assets.csv"
     return pd.read_csv(csv_path)
 
+# ---- Load Model ----
 @st.cache_resource
 def load_model():
-    return load_model_from_gdrive(FAILURE_MODEL_ID, "failure_model.joblib")
+    return download_model_from_hf(HUGGINGFACE_URL, LOCAL_MODEL_PATH)
 
 # ---- Streamlit Layout ----
 st.title("Asset Failure Probability")

@@ -1,271 +1,211 @@
-Here’s the **final README** including a description of the training dataset and the model evaluation metrics for both RUL and Failure models:
+# Water Asset Remaining Useful Life & Failure Prediction
+
+An end-to-end, two-stage machine-learning pipeline for water infrastructure:
+
+1. **Remaining Useful Life (RUL)** regression, then
+2. **Failure Probability** classification that consumes the predicted RUL.
+
+Results are surfaced in interactive **Streamlit dashboards** to support asset risk, maintenance prioritisation, and capital planning.
+
+> **Data source**
+> All datasets in this repository are **synthetic** and **programmatically generated** for demonstration only. They do not represent real water assets or any operational data.
 
 ---
 
-# Water Asset Remaining Useful Life and Failure Prediction
-
-This project provides a **two-stage machine learning pipeline** to predict:
-
-1. The **Remaining Useful Life (RUL)** of water infrastructure assets.
-2. The **Probability of Failure** of each asset using both its physical characteristics and the predicted RUL.
-
-The predictions are displayed in an interactive **Streamlit dashboard**, enabling asset managers and decision-makers to:
-
-* Visualize the health of water infrastructure across different zones.
-* Filter and explore assets by type, zone, and risk level.
-* Prioritize inspections, maintenance, and replacement efforts efficiently.
-
----
-
-## Project Overview
-
-The project uses **two datasets**:
-
-### 1. **Training Dataset (`yarra_assets.csv`)**
-
-This dataset contains **historical water asset information** and serves as the foundation for model training.
-It includes the following key columns:
-
-| Column Name         | Description                                                                |
-| ------------------- | -------------------------------------------------------------------------- |
-| `asset_id`          | Unique identifier for each asset                                           |
-| `asset_name`        | Human-readable name of the asset                                           |
-| `asset_type`        | Type of asset (e.g., Pipe, Valve, Sewer)                                   |
-| `material`          | Material used (e.g., Steel, Concrete, Cast Iron)                           |
-| `diameter`          | Diameter of the asset (mm)                                                 |
-| `installation_year` | Year the asset was installed                                               |
-| `status`            | Current status (e.g., Active, Decommissioned)                              |
-| `network_type`      | Network category (e.g., Water, Recycled Water)                             |
-| `length`            | Length of the asset (meters)                                               |
-| `depth`             | Depth at which the asset is located (meters)                               |
-| `zone`              | Zone or region within the city                                             |
-| `pressure_rating`   | Maximum operating pressure rating                                          |
-| `location`          | Area description (e.g., Suburb A, Melbourne CBD)                           |
-| `geometry`          | Geographic coordinates (latitude, longitude)                               |
-| `Remaining_Years`   | Remaining useful life of the asset (target variable for RUL model)         |
-| `Failure`           | Binary indicator of historical failure (target variable for Failure model) |
-
----
-
-### 2. **Prediction Dataset (`yarra_assets_unknown.csv`)**
-
-This dataset contains **current asset information** but does **not include**:
-
-* `Remaining_Years`
-* `Failure`
-
-It is used as **input for the prediction pipeline** to generate these missing values.
-
----
-
-## Prediction Pipeline
-
-The prediction pipeline processes the raw dataset through **two sequential models**:
+## Repository structure
 
 ```
-Raw Dataset (yarra_assets_unknown.csv)
-      │
-      ▼
-Compute 'age'
-      │
-      ▼
-RUL Model → Predict Remaining_Years
-      │
-      ▼
-Enriched Dataset (includes Remaining_Years)
-      │
-      ▼
-Failure Model → Predict Failure_Prob
-      │
-      ▼
-Streamlit Dashboards (visualizations & filtering)
+.
+├─ data/
+│  ├─ data_generation.py            # creates synthetic training & inference CSVs
+│  ├─ yarra_assets.csv              # TRAIN set (with Remaining_Years, Failure)
+│  └─ yarra_assets_unknown.csv      # INFERENCE set (no Remaining_Years, Failure)
+│
+├─ models/
+│  ├─ rul_model.joblib              # trained RUL regressor
+│  ├─ failure_model.joblib          # trained Failure classifier
+│  ├─ rul_metrics.json              # eval metrics for RUL model
+│  └─ failure_metrics.json          # eval metrics for Failure model
+│
+├─ streamlit_app/
+│  ├─ Menu.py                       # Streamlit entry point / multipage menu
+│  └─ pages/
+│     ├─ 1_Remaining_Useful_Life.py # RUL dashboard
+│     └─ 2_Failure_Probability.py   # Failure dashboard (uses predicted RUL)
+│
+├─ train_rul_model.py               # training script for RUL
+├─ train_failure_model.py           # training script for Failure
+├─ requirements.txt
+├─ runtime.txt
+├─ .gitignore
+└─ README.md
 ```
 
 ---
 
-## Step-by-Step Process
+## Datasets
 
-### **Step 1: Compute Asset Age**
+### `data/yarra_assets.csv` (training)
 
-Before making any predictions, the system calculates the `age` of each asset:
+Asset records including:
+
+* **Core descriptors:** `asset_id`, `asset_name`, `asset_type`, `material`, `diameter`, `installation_year`, `status`, `network_type`, `length`, `depth`, `zone`, `pressure_rating`, `location`, `geometry`.
+* **Targets:**
+
+  * `Remaining_Years` (regression target for the RUL model).
+  * `Failure` (binary classification target for the Failure model).
+
+### `data/yarra_assets_unknown.csv` (inference)
+
+Same core descriptors as above **but without** `Remaining_Years` and `Failure`.
+Used by the app to generate predictions.
+
+> The synthetic generator (`data_generation.py`) samples plausible distributions (age, materials, pressure, diameter, zone) and injects noise and heuristic relationships so the models learn realistic signals.
+
+---
+
+## Prediction pipeline
 
 ```
-age = current_year - installation_year
+yarra_assets_unknown.csv
+      │
+      ├─ compute 'age' = current_year - installation_year
+      ▼
+RUL model (regression) → predict Remaining_Years
+      ▼
+append Remaining_Years to dataframe
+      ▼
+Failure model (classification) → predict Failure_Prob
+      ▼
+Dashboards: maps, KPIs, distributions, ranked tables
 ```
 
-This is a critical feature for both RUL and Failure models.
+---
+
+## Models
+
+### 1) Remaining Useful Life (RUL) model
+
+* **Type:** `RandomForestRegressor`
+* **Goal:** Predict years of useful life remaining: `Remaining_Years`
+* **Key features:**
+
+  * Categorical: `asset_name`, `asset_type`, `material`, `status`, `network_type`, `zone`, `location`
+  * Numeric: `diameter`, `installation_year`, `length`, `depth`, `pressure_rating`, **`age`**
+* **Output:** Adds `Remaining_Years` to the dataset.
+* **Why first?** Remaining life is a strong predictor of near-term failure and is fed into the failure model.
+
+**RUL evaluation (from `models/rul_metrics.json`):**
+
+* MAE: **1.7963**
+* RMSE: **2.6472**
+* R²: **0.9795**
+
+These scores indicate high fidelity regression on the data.
 
 ---
 
-### **Step 2: Remaining Useful Life (RUL) Model**
+### 2) Failure Probability model
 
-**Goal**: Estimate the number of years remaining before an asset reaches the end of its useful life.
+* **Type:** `RandomForestClassifier`
+* **Goal:** Probability an asset fails in the near term: `Failure_Prob ∈ [0,1]`
+* **Key features:**
 
-**Model Type**: Regression (`RandomForestRegressor`)
+  * All RUL features **plus** the predicted **`Remaining_Years`**
+* **Output:** Adds `Failure_Prob` to the dataset.
 
-**Features Used**:
+**Failure evaluation (from `models/failure_metrics.json`):**
 
-* `asset_type`, `material`, `diameter`, `length`, `depth`
-* `installation_year`, `age`
-* `zone`, `pressure_rating`, `network_type`
-* `status`, `location`
+* Accuracy: **0.915**
+* ROC AUC: **0.9691**
 
-**Output**:
+**Classification report:**
 
-* Adds a new column `Remaining_Years` to the dataset.
-
-#### RUL Model Performance:
-
-| Metric                            | Value      |
-| --------------------------------- | ---------- |
-| **MAE** (Mean Absolute Error)     | **1.796**  |
-| **RMSE** (Root Mean Square Error) | **2.647**  |
-| **R² Score**                      | **0.9795** |
-
-The RUL model achieves **very high accuracy**, with an R² score close to 1.0.
+|                Class | Precision | Recall |     F1 | Support |
+| -------------------: | --------: | -----: | -----: | ------: |
+|       0 (No failure) |    0.9080 | 0.9867 | 0.9457 |     150 |
+|          1 (Failure) |    0.9459 | 0.7000 | 0.8046 |      50 |
+| **Overall accuracy** | **0.915** |      — |      — |     200 |
+|            Macro avg |    0.9270 | 0.8433 | 0.8751 |     200 |
+|         Weighted avg |    0.9175 | 0.9150 | 0.9104 |     200 |
 
 ---
 
-### **Step 3: Enriched Dataset**
+## Dashboards (Streamlit)
 
-Once RUL predictions are generated, the dataset now includes:
+### Remaining Useful Life
 
-* Original columns from `yarra_assets_unknown.csv`.
-* A new column: `Remaining_Years`.
+* Filters: zone, asset type, RUL range
+* KPIs: asset count, average RUL
+* Map: assets coloured by `Remaining_Years`
+* Top-5 shortest RUL assets
+* Histogram of RUL
 
-This enriched dataset becomes the **input to the Failure model**.
+### Failure Probability
 
----
+* Runs the **two-stage** inference (RUL → Failure)
+* Filters: zone, asset type, failure-probability range
+* KPIs: asset count, average failure probability, average RUL
+* Map: assets coloured by `Failure_Prob`
+* Top-5 highest risk assets
+* Histogram of failure probability
 
-### **Step 4: Failure Probability Model**
-
-**Goal**: Predict the probability of failure for each asset in the near future.
-
-**Model Type**: Classification (`RandomForestClassifier`)
-
-**Features Used**:
-
-* All features used in the RUL model.
-* **`Remaining_Years`** predicted by the RUL model.
-
-**Output**:
-
-* Adds a new column `Failure_Prob` to the dataset.
-
-#### Failure Model Performance:
-
-| Metric       | Value     |
-| ------------ | --------- |
-| **Accuracy** | **0.915** |
-| **ROC AUC**  | **0.969** |
-
-**Classification Report**:
-
-| Class                | Precision | Recall | F1-Score | Support |
-| -------------------- | --------- | ------ | -------- | ------- |
-| **0 (No Failure)**   | 0.908     | 0.987  | 0.946    | 150     |
-| **1 (Failure)**      | 0.946     | 0.700  | 0.805    | 50      |
-| **Overall Accuracy** | **0.915** | -      | -        | 200     |
-| **Macro Avg**        | 0.927     | 0.843  | 0.875    | 200     |
-| **Weighted Avg**     | 0.917     | 0.915  | 0.910    | 200     |
-
-The failure model demonstrates **strong performance**, with high precision and recall for both classes and an excellent ROC AUC score of **0.969**.
+> The pages load trained models from local `models/*.joblib` or, if configured in code, from the referenced Hugging Face URLs.
 
 ---
 
-## Streamlit Dashboards
+## Quick start
 
-Two interactive dashboards are provided:
+Install dependencies and run the app:
 
-### **1. Remaining Useful Life Dashboard**
+```bash
+pip install -r requirements.txt
+streamlit run streamlit_app/Menu.py
+```
 
-**File**: `1_Remaining_Useful_Life.py`
-
-**Purpose**:
-
-* Visualize predicted RUL across the network.
-* Filter by zone, asset type, and RUL range.
-* Identify the top 5 assets closest to end of life.
-
-**Visual Components**:
-
-* KPIs: Total assets and average remaining life.
-* Map with assets color-coded by RUL.
-* Histogram showing distribution of RUL.
-* Full table view of assets.
+Open the URL printed by Streamlit (typically `http://localhost:8501`).
 
 ---
 
-### **2. Failure Probability Dashboard**
+## (Optional) Retrain the models
 
-**File**: `2_Failure_Probability.py`
+RUL:
 
-**Purpose**:
+```bash
+python train_rul_model.py \
+  --csv data/yarra_assets.csv \
+  --target Remaining_Years \
+  --model_out models/rul_model.joblib \
+  --metrics_out models/rul_metrics.json
+```
 
-* Predict and visualize failure probabilities.
-* Combine asset characteristics with predicted RUL to assess risk.
-* Identify high-risk assets for preventive maintenance.
+Failure:
 
-**Visual Components**:
+```bash
+python train_failure_model.py \
+  --csv data/yarra_assets.csv \
+  --target Failure \
+  --model_out models/failure_model.joblib \
+  --metrics_out models/failure_metrics.json
+```
 
-* KPIs: Total assets and average failure probability.
-* Map with assets color-coded by failure probability.
-* Histogram showing failure probability distribution.
-* Detailed table sorted by risk.
-
----
-
-## Data Flow
-
-| Step               | Input                          | Model                              | Output                      |
-| ------------------ | ------------------------------ | ---------------------------------- | --------------------------- |
-| 1. Compute Age     | `yarra_assets_unknown.csv`     | -                                  | Adds `age` column           |
-| 2. Predict RUL     | Enriched dataset with `age`    | **RUL Model** (Regression)         | Adds `Remaining_Years`      |
-| 3. Predict Failure | Dataset with `Remaining_Years` | **Failure Model** (Classification) | Adds `Failure_Prob`         |
-| 4. Visualization   | Final dataset                  | Streamlit Dashboards               | Interactive visual insights |
+> Note: If you see `InconsistentVersionWarning` when loading models, align your `scikit-learn` version between training and inference (pin the same version in `requirements.txt`) or retrain under the deployed environment.
 
 ---
 
-## Installation
+## Model hosting (optional)
 
-1. Clone the repository:
+Models can be fetched automatically from Hugging Face (as configured in the Streamlit pages):
 
-   ```bash
-   git clone https://github.com/your-repo/water-assets-yarra.git
-   cd water-assets-yarra
-   ```
+* RUL: `https://huggingface.co/louislb1302/failure_model.joblib/resolve/main/rul_model.joblib`
+* Failure: `https://huggingface.co/louislb1302/failure_model.joblib/resolve/main/failure_model.joblib`
 
-2. Install dependencies:
-
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-3. Run the Streamlit app:
-
-   ```bash
-   streamlit run streamlit_app/Menu.py
-   ```
-
----
-
-## Model Hosting
-
-The trained models are hosted on Hugging Face and are automatically downloaded when running the dashboards.
-
-| Model         | URL                                                                                         |
-| ------------- | ------------------------------------------------------------------------------------------- |
-| RUL Model     | `https://huggingface.co/louislb1302/failure_model.joblib/resolve/main/rul_model.joblib`     |
-| Failure Model | `https://huggingface.co/louislb1302/failure_model.joblib/resolve/main/failure_model.joblib` |
+You may switch the pages to read directly from `./models/*.joblib` if preferred.
 
 ---
 
 ## Summary
 
-This project delivers a **two-step predictive maintenance solution** for water infrastructure:
-
-1. **RUL Prediction** – Estimate how long each asset will last.
-2. **Failure Prediction** – Assess failure probability based on RUL and other features.
-3. **Interactive Dashboards** – Explore results visually and prioritize maintenance actions.
-
-The system helps **optimize maintenance strategies**, reduce costs, and prevent unexpected failures by identifying **high-risk assets before issues occur**.
+* **Two-stage inference:** predict **RUL** then **Failure Probability**.
+* **Dashboards** for exploration, ranking, and spatial context.
+* **Solid metrics** on the training set, showing the approach and UX you’d bring to production with real data.

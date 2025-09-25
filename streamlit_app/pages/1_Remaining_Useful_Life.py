@@ -13,7 +13,7 @@ st.set_page_config(page_title="Remaining Useful Life Dashboard", layout="wide")
 
 st.session_state.update({"__streamlit_page_name__": "Remaining Useful Life"})
 
-
+# ---- Helper: Download model from Hugging Face ----
 def download_model_from_hf(url, local_filename):
     local_path = Path(local_filename)
     if not local_path.exists():
@@ -28,10 +28,10 @@ def download_model_from_hf(url, local_filename):
         st.write(f"Model successfully downloaded ({size_mb:.2f} MB)")
     return local_path
 
-# ---- Load Data ----
+# ---- Load Raw Data ----
 @st.cache_data
 def load_assets():
-    csv_path = Path("data/yarra_assets.csv")
+    csv_path = Path("data/yarra_assets_unknown.csv")
     return pd.read_csv(csv_path)
 
 # ---- Load Model ----
@@ -40,12 +40,40 @@ def load_model():
     model_path = download_model_from_hf(HUGGINGFACE_MODEL_URL, "rul_model.joblib")
     return joblib.load(model_path)
 
+# ---- Predict RUL ----
+def predict_rul(df, model):
+    """
+    Uses the trained model to predict Remaining Useful Life (RUL)
+    and adds it to the dataframe as 'Predicted_RUL'.
+    """
+    # Define the feature columns used during training
+    feature_cols = [
+        "asset_type", "material", "diameter",
+        "installation_year", "status", "network_type",
+        "length", "depth", "zone", "pressure_rating"
+    ]
+
+    # Ensure required columns exist
+    missing_cols = [col for col in feature_cols if col not in df.columns]
+    if missing_cols:
+        st.error(f"Missing required columns for prediction: {missing_cols}")
+        return df
+
+    # Predict using the model
+    X = df[feature_cols]
+    df["Predicted_RUL"] = model.predict(X)
+    return df
+
+# ---- Streamlit UI ----
 st.title("Water Asset Remaining Useful Life (RUL) Dashboard")
-st.markdown("This dashboard predicts and visualizes the **remaining useful life** of water infrastructure assets.")
+st.markdown("This dashboard **predicts** and visualizes the remaining useful life of water infrastructure assets.")
 
 # Load data and model
 df = load_assets()
 model = load_model()
+
+# Generate predictions
+df = predict_rul(df, model)
 
 # ---- Sidebar filters ----
 st.sidebar.header("Filters")
@@ -62,8 +90,9 @@ types = st.sidebar.multiselect(
     default=df["asset_type"].unique()
 )
 
-min_rul = float(df["Remaining_Years"].min())
-max_rul = float(df["Remaining_Years"].max())
+# Slider based on predicted RUL
+min_rul = float(df["Predicted_RUL"].min())
+max_rul = float(df["Predicted_RUL"].max())
 
 rul_range = st.sidebar.slider(
     "Filter by Remaining Life (Years)",
@@ -77,14 +106,14 @@ rul_range = st.sidebar.slider(
 filtered_df = df[
     (df["zone"].isin(zones)) &
     (df["asset_type"].isin(types)) &
-    (df["Remaining_Years"].between(rul_range[0], rul_range[1]))
+    (df["Predicted_RUL"].between(rul_range[0], rul_range[1]))
 ]
 
 # ---- Display KPIs ----
 st.subheader("Key Performance Indicators")
 
 total_assets = len(filtered_df)
-avg_rul = filtered_df["Remaining_Years"].mean()
+avg_rul = filtered_df["Predicted_RUL"].mean()
 
 col1, col2 = st.columns(2)
 col1.metric("Total Assets", total_assets)
@@ -92,8 +121,8 @@ col2.metric("Average Remaining Life (Years)", f"{avg_rul:.1f}")
 
 # ---- Top 5 Assets ----
 st.subheader("Top 5 Assets with the Smallest Remaining Life")
-top_5 = filtered_df.sort_values(by="Remaining_Years", ascending=True).head(5)
-st.table(top_5[["asset_id", "asset_type", "material", "Remaining_Years", "zone", "status"]])
+top_5 = filtered_df.sort_values(by="Predicted_RUL", ascending=True).head(5)
+st.table(top_5[["asset_id", "asset_type", "material", "Predicted_RUL", "zone", "status"]])
 
 st.markdown("""
 These assets should be **prioritized for inspection or replacement** as they have the **lowest remaining lifespan**.
@@ -111,10 +140,10 @@ map_fig = px.scatter_mapbox(
     filtered_df,
     lat="lat",
     lon="lon",
-    color="Remaining_Years",
-    hover_data=["asset_id", "asset_type", "material", "Remaining_Years"],
+    color="Predicted_RUL",
+    hover_data=["asset_id", "asset_type", "material", "Predicted_RUL"],
     color_continuous_scale="RdYlGn",
-    title="Assets by Remaining Useful Life",
+    title="Assets by Predicted Remaining Useful Life",
     zoom=10
 )
 map_fig.update_layout(mapbox_style="open-street-map")
@@ -124,16 +153,16 @@ st.plotly_chart(map_fig, use_container_width=True)
 st.subheader("Full Asset Table")
 st.dataframe(filtered_df[[
     "asset_id", "asset_type", "material", "installation_year",
-    "Remaining_Years", "zone", "status"
+    "Predicted_RUL", "zone", "status"
 ]], use_container_width=True)
 
 # ---- Histogram ----
 st.subheader("Remaining Life Distribution")
 hist_fig = px.histogram(
     filtered_df,
-    x="Remaining_Years",
+    x="Predicted_RUL",
     nbins=20,
-    title="Distribution of Remaining Useful Life"
+    title="Distribution of Predicted Remaining Useful Life"
 )
 st.plotly_chart(hist_fig, use_container_width=True)
 

@@ -15,12 +15,18 @@ from pathlib import Path
 import os
 import streamlit as st
 
+import requests
+import joblib
+from pathlib import Path
+import os
+import streamlit as st
+
 def download_from_google_drive(file_id, destination):
-    """Télécharge un gros fichier depuis Google Drive avec gestion du token de confirmation."""
+    """Télécharge un gros fichier Google Drive avec confirmation et par chunks."""
     URL = "https://docs.google.com/uc?export=download"
     session = requests.Session()
 
-    # 1. Première requête
+    # Étape 1 : première requête
     response = session.get(URL, params={'id': file_id}, stream=True)
     token = None
 
@@ -28,13 +34,14 @@ def download_from_google_drive(file_id, destination):
     for key, value in response.cookies.items():
         if key.startswith('download_warning'):
             token = value
+            break
 
-    # 2. Si token trouvé, refaire la requête avec confirmation
+    # Étape 2 : si token trouvé, refaire la requête avec confirmation
     if token:
         params = {'id': file_id, 'confirm': token}
         response = session.get(URL, params=params, stream=True)
 
-    # 3. Téléchargement par chunks
+    # Étape 3 : téléchargement par chunks
     CHUNK_SIZE = 32768
     with open(destination, "wb") as f:
         for chunk in response.iter_content(CHUNK_SIZE):
@@ -43,7 +50,7 @@ def download_from_google_drive(file_id, destination):
 
 @st.cache_resource
 def load_model_from_gdrive(file_id, local_filename):
-    """Télécharge un modèle depuis Google Drive et le charge avec joblib."""
+    """Télécharge le modèle depuis Google Drive et le charge avec joblib."""
     local_path = Path(local_filename)
 
     if not local_path.exists():

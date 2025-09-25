@@ -32,7 +32,7 @@ def load_model_from_gdrive(file_id, local_filename):
 @st.cache_data
 def load_assets():
     base_path = Path(__file__).resolve().parent.parent
-    csv_path = "data" / "yarra_assets.csv"
+    csv_path = "data/yarra_assets.csv"
     return pd.read_csv(csv_path)
 
 @st.cache_resource

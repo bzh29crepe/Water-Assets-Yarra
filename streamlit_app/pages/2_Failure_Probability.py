@@ -20,8 +20,12 @@ st.session_state.update({"__streamlit_page_name__": "Failure Probability"})
 # =============================================================================
 # Config
 # =============================================================================
-HUGGINGFACE_URL = "https://huggingface.co/louislb1302/failure_model.joblib/resolve/main/failure_model.joblib"
-LOCAL_MODEL_PATH = Path("failure_model.joblib")
+RUL_MODEL_URL = "https://huggingface.co/louislb1302/failure_model.joblib/resolve/main/rul_model.joblib"
+FAILURE_MODEL_URL = "https://huggingface.co/louislb1302/failure_model.joblib/resolve/main/failure_model.joblib"
+
+RUL_LOCAL_MODEL_PATH = Path("rul_model.joblib")
+FAILURE_LOCAL_MODEL_PATH = Path("failure_model.joblib")
+
 DATA_PATH = Path("data/yarra_assets_unknown.csv")
 
 # =============================================================================
@@ -31,7 +35,7 @@ DATA_PATH = Path("data/yarra_assets_unknown.csv")
 def download_model_from_hf(url, local_path):
     """Download model from Hugging Face if not available locally."""
     if not local_path.exists():
-        st.write("Downloading the failure prediction model from Hugging Face...")
+        st.write(f"Downloading model from Hugging Face: {url}")
         response = requests.get(url, stream=True)
 
         if response.status_code == 200:
@@ -58,10 +62,9 @@ def load_assets():
 # =============================================================================
 # Preprocess for Prediction
 # =============================================================================
-def preprocess_for_prediction(df):
+def preprocess_data(df):
     """
-    Prepare the dataset for failure probability prediction.
-    Adds computed features like 'age'.
+    Prepare the dataset by computing additional features like 'age'.
     """
     current_year = datetime.now().year
 
@@ -72,12 +75,12 @@ def preprocess_for_prediction(df):
     return df
 
 # =============================================================================
-# Generate Failure Predictions
+# Predict Remaining Useful Life (RUL)
 # =============================================================================
-def predict_failure(df, model):
+def predict_rul(df, rul_model):
     """
-    Use the trained model to predict failure probabilities
-    and add them to the dataframe as 'Failure_Prob'.
+    Use the RUL model to predict Remaining Useful Life and
+    add it to the dataframe as 'Remaining_Years'.
     """
     feature_cols = [
         "asset_name", "asset_type", "material", "diameter",
@@ -89,40 +92,72 @@ def predict_failure(df, model):
     # Check for missing columns
     missing_cols = [col for col in feature_cols if col not in df.columns]
     if missing_cols:
-        st.error(f"Missing required columns for failure prediction: {missing_cols}")
+        st.error(f"Missing required columns for RUL prediction: {missing_cols}")
         return df
 
-    # Predict probabilities
     X = df[feature_cols]
-    df["Failure_Prob"] = model.predict_proba(X)[:, 1]
+    df["Remaining_Years"] = rul_model.predict(X)
 
     return df
 
 # =============================================================================
-# Load Model
+# Predict Failure Probability
+# =============================================================================
+def predict_failure(df, failure_model):
+    """
+    Use the failure model to predict failure probabilities.
+    Requires 'Remaining_Years' from RUL predictions.
+    """
+    feature_cols = [
+        "asset_name", "asset_type", "material", "diameter",
+        "installation_year", "status", "network_type",
+        "length", "depth", "zone", "pressure_rating",
+        "location", "age", "Remaining_Years"
+    ]
+
+    # Check for missing columns
+    missing_cols = [col for col in feature_cols if col not in df.columns]
+    if missing_cols:
+        st.error(f"Missing required columns for Failure prediction: {missing_cols}")
+        return df
+
+    X = df[feature_cols]
+    df["Failure_Prob"] = failure_model.predict_proba(X)[:, 1]
+
+    return df
+
+# =============================================================================
+# Load Models
 # =============================================================================
 @st.cache_resource
-def load_model():
-    return download_model_from_hf(HUGGINGFACE_URL, LOCAL_MODEL_PATH)
+def load_models():
+    rul_model = download_model_from_hf(RUL_MODEL_URL, RUL_LOCAL_MODEL_PATH)
+    failure_model = download_model_from_hf(FAILURE_MODEL_URL, FAILURE_LOCAL_MODEL_PATH)
+    return rul_model, failure_model
 
 # =============================================================================
 # Streamlit Layout
 # =============================================================================
 st.title("Asset Failure Probability Dashboard")
 st.markdown("""
-This dashboard **predicts the probability of failure** for each water infrastructure asset.  
-The predictions help prioritize **preventive maintenance**, reduce emergency repairs, and guide investment planning.
+This dashboard first **predicts the Remaining Useful Life (RUL)** of each asset,
+then uses that prediction along with other features to **predict failure probability**.
 
-The data shown comes from `yarra_assets_unknown.csv` and the **failure probabilities** are generated by a trained model.
+The data comes from `yarra_assets_unknown.csv` and goes through two prediction stages:
+1. RUL Prediction → `Remaining_Years`
+2. Failure Prediction → `Failure_Prob`
 """)
 
-# ---- Load data and model ----
+# ---- Load data and models ----
 df = load_assets()
-df = preprocess_for_prediction(df)
-model = load_model()
+df = preprocess_data(df)
+rul_model, failure_model = load_models()
+
+# ---- Generate RUL predictions ----
+df = predict_rul(df, rul_model)
 
 # ---- Generate failure predictions ----
-df = predict_failure(df, model)
+df = predict_failure(df, failure_model)
 
 # =============================================================================
 # Sidebar Filters
@@ -163,9 +198,10 @@ filtered_df = df[
 # KPIs
 # =============================================================================
 st.subheader("Key Metrics")
-col1, col2 = st.columns(2)
+col1, col2, col3 = st.columns(3)
 col1.metric("Total Assets", len(filtered_df))
 col2.metric("Average Failure Probability", f"{filtered_df['Failure_Prob'].mean():.2f}")
+col3.metric("Average Remaining Life (Years)", f"{filtered_df['Remaining_Years'].mean():.1f}")
 
 # =============================================================================
 # Top 5 Assets with Highest Failure Probability
@@ -173,7 +209,9 @@ col2.metric("Average Failure Probability", f"{filtered_df['Failure_Prob'].mean()
 st.subheader("Top 5 Assets with Highest Failure Probability")
 
 top_5 = filtered_df.sort_values(by="Failure_Prob", ascending=False).head(5)
-st.table(top_5[["asset_id", "asset_type", "material", "Failure_Prob", "zone", "status"]])
+st.table(top_5[[
+    "asset_id", "asset_type", "material", "Remaining_Years", "Failure_Prob", "zone", "status"
+]])
 
 st.markdown("""
 These assets should be **prioritized for preventive maintenance** or **immediate inspection** due to their high risk of failure.
@@ -194,7 +232,7 @@ map_fig = px.scatter_mapbox(
     lat="lat",
     lon="lon",
     color="Failure_Prob",
-    hover_data=["asset_id", "asset_type", "material", "Failure_Prob"],
+    hover_data=["asset_id", "asset_type", "material", "Remaining_Years", "Failure_Prob"],
     color_continuous_scale="Reds",
     title="Failure Probability by Location",
     zoom=10
@@ -210,7 +248,8 @@ st.dataframe(
     filtered_df[
         [
             "asset_id", "asset_name", "asset_type", "material",
-            "installation_year", "Failure_Prob", "zone", "status", "location", "age"
+            "installation_year", "Remaining_Years", "Failure_Prob",
+            "zone", "status", "location", "age"
         ]
     ].sort_values("Failure_Prob", ascending=False),
     use_container_width=True

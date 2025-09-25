@@ -30,6 +30,10 @@ def load_model_from_gdrive(file_id, local_filename):
     # Charger le modèle
     return joblib.load(local_path)
 
+    with open(local_path, "rb") as f:
+        head = f.read(200)
+    st.text(f"Contenu brut du fichier :\n{head}")
+
 # ---- Load Model and Data ----
 @st.cache_data
 def load_assets():

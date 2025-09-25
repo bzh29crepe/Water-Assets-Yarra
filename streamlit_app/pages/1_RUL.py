@@ -8,14 +8,17 @@ from pathlib import Path
 # ---- Config ----
 HUGGINGFACE_MODEL_URL = "https://huggingface.co/louislb1302/failure_model.joblib/resolve/main/rul_model.joblib"
 
-# ---- Helper: Télécharger le modèle depuis Hugging Face ----
+st.set_page_config(
+    page_title="Remaining Useful Life",
+)
+
+st.session_state.update({"__streamlit_page_name__": "Remaining Useful Life"})
+
+
 def download_model_from_hf(url, local_filename):
-    """
-    Télécharge un modèle hébergé sur Hugging Face et le sauvegarde en local
-    """
     local_path = Path(local_filename)
     if not local_path.exists():
-        st.write("Téléchargement du modèle RUL depuis Hugging Face...")
+        st.write("Downloading the model from Hugging Face...")
         with requests.get(url, stream=True) as r:
             r.raise_for_status()
             with open(local_path, "wb") as f:
@@ -23,7 +26,7 @@ def download_model_from_hf(url, local_filename):
                     if chunk:
                         f.write(chunk)
         size_mb = local_path.stat().st_size / (1024 * 1024)
-        st.write(f"Modèle téléchargé avec succès ({size_mb:.2f} MB)")
+        st.write(f"Model successfully downloaded ({size_mb:.2f} MB)")
     return local_path
 
 # ---- Load Data ----
@@ -63,7 +66,6 @@ types = st.sidebar.multiselect(
     default=df["asset_type"].unique()
 )
 
-# Slider pour Remaining Life
 min_rul = float(df["Remaining_Years"].min())
 max_rul = float(df["Remaining_Years"].max())
 

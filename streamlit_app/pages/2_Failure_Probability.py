@@ -6,16 +6,22 @@ import os
 import requests
 from pathlib import Path
 
+st.set_page_config(
+    page_title="Failure Probability",
+    layout="wide"
+)
+
+st.session_state.update({"__streamlit_page_name__": "Failure Probability"})
+
 # ---- Config ----
 HUGGINGFACE_URL = "https://huggingface.co/louislb1302/failure_model.joblib/resolve/main/failure_model.joblib"
 LOCAL_MODEL_PATH = Path("failure_model.joblib")
 
-# ---- Téléchargement depuis Hugging Face ----
+# ---- Downloading model from Hugging Face ----
 @st.cache_resource
 def download_model_from_hf(url, local_path):
-    """Télécharge le modèle depuis Hugging Face s'il n'est pas déjà en local."""
     if not local_path.exists():
-        st.write("Téléchargement du modèle depuis Hugging Face...")
+        st.write("Downloading the model from Hugging Face...")
         response = requests.get(url, stream=True)
 
         if response.status_code == 200:
@@ -24,9 +30,9 @@ def download_model_from_hf(url, local_path):
                     if chunk:
                         f.write(chunk)
             size_mb = os.path.getsize(local_path) / (1024 * 1024)
-            st.write(f"Modèle téléchargé avec succès ({size_mb:.2f} MB)")
+            st.write(f"Model successfully ({size_mb:.2f} MB)")
         else:
-            st.error(f"Erreur lors du téléchargement du modèle : HTTP {response.status_code}")
+            st.error(f"Error : HTTP {response.status_code}")
             st.stop()
 
     return joblib.load(local_path)

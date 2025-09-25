@@ -2,9 +2,15 @@ import streamlit as st
 from pathlib import Path
 
 # ---- CONFIGURATION ----
-st.set_page_config(page_title="Water Asset Dashboard", layout="wide")
+st.set_page_config(
+    page_title="Water Asset Dashboard",
+    layout="wide"
+)
 
-# ---- BARRE DE NAVIGATION ----
+st.session_state.update({"__streamlit_page_name__": "Read me"})
+
+st.title("Water Infrastructure Asset Dashboard")
+
 st.markdown(
     """
     <style>

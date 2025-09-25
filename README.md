@@ -1,6 +1,11 @@
 # Water Asset Analytics Dashboard
 
-This project demonstrates a **data science pipeline** for predicting and visualizing:
+This dashboard allows you to explore water infrastructure assets:
+
+- **Page 1:** Remaining Useful Life (RUL)
+- **Page 2:** Failure Probability
+
+Use the navigation buttons at the top to switch between views.
 
 * **Remaining Useful Life (RUL)** of water infrastructure assets (Regression).
 * **Failure Probability** of assets in the next 12 months (Classification).

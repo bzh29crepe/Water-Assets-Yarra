@@ -1,10 +1,58 @@
 import streamlit as st
+from pathlib import Path
 
+# ---- CONFIGURATION ----
 st.set_page_config(page_title="Water Asset Dashboard", layout="wide")
 
+# ---- BARRE DE NAVIGATION ----
+st.markdown(
+    """
+    <style>
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    .nav-container {
+        display: flex;
+        justify-content: flex-start;
+        gap: 20px;
+        margin-bottom: 20px;
+    }
+    .nav-button {
+        padding: 8px 16px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        background-color: #f9f9f9;
+        color: #333;
+        text-decoration: none;
+        font-weight: 500;
+    }
+    .nav-button:hover {
+        background-color: #e6e6e6;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+# Création des boutons avec liens vers les pages
+st.markdown(
+    """
+    <div class="nav-container">
+        <a class="nav-button" href="/Water_Asset_Dashboard/01_RUL" target="_self">Remaining Useful Life</a>
+        <a class="nav-button" href="/Water_Asset_Dashboard/02_Failure_Probability" target="_self">Failure Probability</a>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
+# ---- PAGE D'ACCUEIL ----
 st.title("Water Infrastructure Asset Dashboard")
-st.markdown("""
-This app allows you to explore water infrastructure assets:
-- **Page 1:** Remaining Useful Life (RUL)
-- **Page 2:** Failure Probability
-""")
+
+# Charger le contenu du README.md
+readme_path = Path("README.md")
+if readme_path.exists():
+    with open(readme_path, "r", encoding="utf-8") as f:
+        readme_content = f.read()
+    st.markdown(readme_content, unsafe_allow_html=True)
+else:
+    st.warning("README.md file not found.")

@@ -8,9 +8,8 @@ from pathlib import Path
 # ---- Config ----
 HUGGINGFACE_MODEL_URL = "https://huggingface.co/louislb1302/failure_model.joblib/resolve/main/rul_model.joblib"
 
-st.set_page_config(
-    page_title="Remaining Useful Life",
-)
+# ---- Streamlit Layout ----
+st.set_page_config(page_title="Remaining Useful Life Dashboard", layout="wide")
 
 st.session_state.update({"__streamlit_page_name__": "Remaining Useful Life"})
 
@@ -40,9 +39,6 @@ def load_assets():
 def load_model():
     model_path = download_model_from_hf(HUGGINGFACE_MODEL_URL, "rul_model.joblib")
     return joblib.load(model_path)
-
-# ---- Streamlit Layout ----
-st.set_page_config(page_title="Remaining Useful Life Dashboard", layout="wide")
 
 st.title("Water Asset Remaining Useful Life (RUL) Dashboard")
 st.markdown("This dashboard predicts and visualizes the **remaining useful life** of water infrastructure assets.")

@@ -37,9 +37,6 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# ---- Menu ----
-st.title("Water Infrastructure Asset Dashboard")
-
 # readme.md
 readme_path = Path("README.md")
 if readme_path.exists():

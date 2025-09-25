@@ -2,11 +2,14 @@ import streamlit as st
 import pandas as pd
 import joblib
 import plotly.express as px
+import os
 
 # ---- Load Model and Data ----
 @st.cache_data
 def load_assets():
-    return pd.read_csv("../data/yarra_assets.csv")
+    base_path = os.path.dirname(__file__)  # dossier où se trouve ce script
+    csv_path = os.path.join(base_path, "..", "data", "yarra_assets.csv")
+    return pd.read_csv(csv_path)
 
 @st.cache_resource
 def load_model():

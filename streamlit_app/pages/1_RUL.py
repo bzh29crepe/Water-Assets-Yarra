@@ -2,15 +2,42 @@ import streamlit as st
 import pandas as pd
 import joblib
 import plotly.express as px
+import os
+import requests
+from pathlib import Path
+
+# ---- Config ----
+RUL_MODEL_ID = "1mIdluWvhTLVx5PPY6H0PXx0NhTXYWFr_"
+
+# ---- Helper function to download the model from Google Drive ----
+@st.cache_resource
+def load_model_from_gdrive(file_id, local_filename):
+    models_dir = Path("models")
+    models_dir.mkdir(exist_ok=True)
+    local_path = models_dir / local_filename
+
+    if not local_path.exists():
+        url = f"https://drive.google.com/uc?export=download&id={file_id}"
+        response = requests.get(url)
+        if response.status_code == 200:
+            with open(local_path, "wb") as f:
+                f.write(response.content)
+        else:
+            st.error(f"Error downloading model. Status code: {response.status_code}")
+            st.stop()
+
+    return joblib.load(local_path)
 
 # ---- Load Model and Data ----
 @st.cache_data
 def load_assets():
-    return pd.read_csv("../data/yarra_assets.csv")
+    base_path = Path(__file__).resolve().parent.parent
+    csv_path = base_path / "data" / "yarra_assets.csv"
+    return pd.read_csv(csv_path)
 
 @st.cache_resource
 def load_model():
-    return joblib.load("../models/rul_model.joblib")
+    return load_model_from_gdrive(RUL_MODEL_ID, "rul_model.joblib")
 
 # ---- Streamlit Layout ----
 st.set_page_config(page_title="Remaining Useful Life Dashboard", layout="wide")
@@ -81,7 +108,6 @@ These assets should be **prioritized for inspection or replacement** as they hav
 # ---- Map View ----
 st.subheader("Geospatial View of Assets")
 
-# Split geometry into lat/lon
 coords = filtered_df["geometry"].str.split(",", expand=True).astype(float)
 filtered_df["lat"] = coords[0]
 filtered_df["lon"] = coords[1]

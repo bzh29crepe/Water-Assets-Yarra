@@ -109,8 +109,6 @@ Failure model → predict Failure_Prob
 Streamlit dashboards
 ```
 
-This enables the dashboards to showcase **realistic end-to-end predictions** without exposing actual operational data.
-
 ---
 
 ## Prediction pipeline
@@ -200,56 +198,6 @@ These scores indicate high fidelity regression on the data.
 * Histogram of failure probability
 
 > The pages load trained models from local `models/*.joblib` or, if configured in code, from the referenced Hugging Face URLs.
-
----
-
-## Quick start
-
-Install dependencies and run the app:
-
-```bash
-pip install -r requirements.txt
-streamlit run streamlit_app/Menu.py
-```
-
-Open the URL printed by Streamlit (typically `http://localhost:8501`).
-
----
-
-## (Optional) Retrain the models
-
-RUL:
-
-```bash
-python train_rul_model.py \
-  --csv data/yarra_assets.csv \
-  --target Remaining_Years \
-  --model_out models/rul_model.joblib \
-  --metrics_out models/rul_metrics.json
-```
-
-Failure:
-
-```bash
-python train_failure_model.py \
-  --csv data/yarra_assets.csv \
-  --target Failure \
-  --model_out models/failure_model.joblib \
-  --metrics_out models/failure_metrics.json
-```
-
-> Note: If you see `InconsistentVersionWarning` when loading models, align your `scikit-learn` version between training and inference (pin the same version in `requirements.txt`) or retrain under the deployed environment.
-
----
-
-## Model hosting (optional)
-
-Models can be fetched automatically from Hugging Face (as configured in the Streamlit pages):
-
-* RUL: `https://huggingface.co/louislb1302/failure_model.joblib/resolve/main/rul_model.joblib`
-* Failure: `https://huggingface.co/louislb1302/failure_model.joblib/resolve/main/failure_model.joblib`
-
-You may switch the pages to read directly from `./models/*.joblib` if preferred.
 
 ---
 

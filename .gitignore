@@ -1,0 +1,21 @@
+<<<<<<< HEAD
+# Ignore all model files (joblib files are large)
+models/*.joblib
+
+# Keep JSON metrics
+!models/*.json
+
+# Python cache files
+__pycache__/
+*.pyc
+=======
+# Ignore all model files (joblib files are large)
+models/*.joblib
+
+# Keep JSON metrics
+!models/*.json
+
+# Python cache files
+__pycache__/
+*.pyc
+>>>>>>> e1b9a867411dbb77ab32dd9e3d5dd674e5971692

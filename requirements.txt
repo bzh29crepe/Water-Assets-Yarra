@@ -1,0 +1,17 @@
+<<<<<<< HEAD
+pandas==2.2.2
+numpy==1.26.4
+scikit-learn==1.5.1
+joblib==1.4.2
+plotly==5.24.1
+streamlit==1.37.1
+matplotlib==3.9.2
+=======
+pandas==2.2.2
+numpy==1.26.4
+scikit-learn==1.5.1
+joblib==1.4.2
+plotly==5.24.1
+streamlit==1.37.1
+matplotlib==3.9.2
+>>>>>>> e1b9a867411dbb77ab32dd9e3d5dd674e5971692

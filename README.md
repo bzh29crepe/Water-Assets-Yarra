@@ -19,6 +19,7 @@ The project includes:
 water_asset_dashboard/
 │
 ├── data/
+│   └── data_generation.py              # Synthetic dataset generation
 │   └── yarra_assets.csv                # Synthetic dataset generated automatically
 │
 ├── models/
@@ -42,8 +43,8 @@ water_asset_dashboard/
 
 ## Data Disclaimer
 
-The dataset used in this project is **synthetic** and automatically generated for demonstration purposes only.
-It **does not represent real Yarra Valley Water data** or any real-world utility dataset.
+The dataset used in this project is **synthetic** and generated for demonstration purposes only.
+It **does not represent real Yarra water assets data** or any real-world utility dataset.
 
 ---
 
@@ -52,7 +53,7 @@ It **does not represent real Yarra Valley Water data** or any real-world utility
 1. **Clone the repository**:
 
 ```bash
-git clone https://github.com/yourusername/water-asset-dashboard.git
+git clone https://github.com/yourusername/water-assets-yarra.git
 cd water-asset-dashboard
 ```
 

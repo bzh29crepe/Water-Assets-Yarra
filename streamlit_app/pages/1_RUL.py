@@ -9,30 +9,57 @@ from pathlib import Path
 # ---- Config ----
 RUL_MODEL_ID = "1mIdluWvhTLVx5PPY6H0PXx0NhTXYWFr_"
 
-# ---- Helper function to download the model from Google Drive ----
+import requests
+import joblib
+from pathlib import Path
+import os
+import streamlit as st
+
+def download_from_google_drive(file_id, destination):
+    """Télécharge un gros fichier depuis Google Drive avec gestion du token de confirmation."""
+    URL = "https://docs.google.com/uc?export=download"
+    session = requests.Session()
+
+    # 1. Première requête
+    response = session.get(URL, params={'id': file_id}, stream=True)
+    token = None
+
+    # Cherche le token dans les cookies
+    for key, value in response.cookies.items():
+        if key.startswith('download_warning'):
+            token = value
+
+    # 2. Si token trouvé, refaire la requête avec confirmation
+    if token:
+        params = {'id': file_id, 'confirm': token}
+        response = session.get(URL, params=params, stream=True)
+
+    # 3. Téléchargement par chunks
+    CHUNK_SIZE = 32768
+    with open(destination, "wb") as f:
+        for chunk in response.iter_content(CHUNK_SIZE):
+            if chunk:
+                f.write(chunk)
+
 @st.cache_resource
 def load_model_from_gdrive(file_id, local_filename):
     """Télécharge un modèle depuis Google Drive et le charge avec joblib."""
-    url = f"https://drive.google.com/uc?export=download&id={file_id}"
     local_path = Path(local_filename)
 
-    # Télécharger le fichier seulement s'il n'existe pas déjà
     if not local_path.exists():
-        st.write("Téléchargement du modèle depuis Google Drive...")
-        response = requests.get(url)
-        if response.status_code == 200:
-            local_path.write_bytes(response.content)
-            st.write(f"Modèle téléchargé avec succès ({os.path.getsize(local_path)} octets)")
-        else:
-            st.error(f"Erreur lors du téléchargement. Code HTTP: {response.status_code}")
+        st.write(f"Téléchargement du modèle {local_filename} depuis Google Drive...")
+        download_from_google_drive(file_id, local_path)
+        size = os.path.getsize(local_path)
+        st.write(f"Modèle téléchargé avec succès ({size / (1024*1024):.2f} MB)")
+
+        # Vérifie que ce n'est pas du HTML
+        with open(local_path, "rb") as f:
+            head = f.read(200)
+        if head.startswith(b'<!DOCTYPE html>'):
+            st.error("Le fichier téléchargé est une page HTML, pas un modèle. Vérifie les droits ou le quota Google Drive.")
             st.stop()
 
-    # Charger le modèle
     return joblib.load(local_path)
-
-    with open(local_path, "rb") as f:
-        head = f.read(200)
-    st.text(f"Contenu brut du fichier :\n{head}")
 
 # ---- Load Model and Data ----
 @st.cache_data

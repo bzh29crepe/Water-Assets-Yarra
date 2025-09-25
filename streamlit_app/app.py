@@ -34,21 +34,10 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# Création des boutons avec liens vers les pages
-st.markdown(
-    """
-    <div class="nav-container">
-        <a class="nav-button" href="/Water_Asset_Dashboard/01_RUL" target="_self">Remaining Useful Life</a>
-        <a class="nav-button" href="/Water_Asset_Dashboard/02_Failure_Probability" target="_self">Failure Probability</a>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
-
-# ---- PAGE D'ACCUEIL ----
+# ---- Menu ----
 st.title("Water Infrastructure Asset Dashboard")
 
-# Charger le contenu du README.md
+# readme.md
 readme_path = Path("README.md")
 if readme_path.exists():
     with open(readme_path, "r", encoding="utf-8") as f:

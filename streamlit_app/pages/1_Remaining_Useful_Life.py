@@ -106,11 +106,9 @@ model = load_model()
 # ---- Generate predictions ----
 df = predict_rul(df, model)
 
-if df["Predicted_RUL"] == 0 :
-    df["status"] = "Decommissioned"
+df.loc[df["Predicted_RUL"] == 0, "status"] = "Decommissioned"
 
-if df["Predicted_RUL"] != 0 and df["status"] == "Decommissioned":
-    df["status"] = "Active"
+df.loc[(df["Predicted_RUL"] != 0) & (df["status"] == "Decommissioned"), "status"] = "Active"
 
 # ---- Sidebar Filters ----
 st.sidebar.header("Filters")

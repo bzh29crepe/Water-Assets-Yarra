@@ -112,7 +112,6 @@ map_fig = px.scatter_mapbox(
     lat="lat",
     lon="lon",
     color="Remaining_Years",
-    size="diameter",
     hover_data=["asset_id", "asset_type", "material", "Remaining_Years"],
     color_continuous_scale="RdYlGn",
     title="Assets by Remaining Useful Life",

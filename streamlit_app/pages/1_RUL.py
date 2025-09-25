@@ -7,13 +7,15 @@ import os
 # ---- Load Model and Data ----
 @st.cache_data
 def load_assets():
-    base_path = os.path.dirname(__file__)  # dossier où se trouve ce script
-    csv_path = os.path.join(base_path, "..", "data", "yarra_assets.csv")
+    base_path = Path(__file__).resolve().parent.parent
+    csv_path = base_path / "data" / "yarra_assets.csv"
     return pd.read_csv(csv_path)
 
 @st.cache_resource
 def load_model():
-    return joblib.load("../models/rul_model.joblib")
+    base_path = Path(__file__).resolve().parent.parent
+    model_path = base_path / "models" / "rul_model.joblib"
+    return joblib.load(model_path)
 
 # ---- Streamlit Layout ----
 st.set_page_config(page_title="Remaining Useful Life Dashboard", layout="wide")
